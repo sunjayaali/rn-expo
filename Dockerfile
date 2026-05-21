@@ -1,20 +1,13 @@
 # Stage 1: Install dependencies
-FROM node:24.13.0-alpine AS deps
+FROM node:24.13.0-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 # Install dependencies with npm ci (faster, respects lockfile)
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --no-fund
-
-# Stage 2: Build
-FROM node:24.13.0-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+RUN npm ci --no-audit --no-fund
 COPY . .
-# Build the Expo web app
 RUN npx expo export -p web
 
-# Stage 3: Production (using Nginx for better performance)
+# Stage 2: Production (using Nginx for better performance)
 FROM nginx:alpine
 # Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html
