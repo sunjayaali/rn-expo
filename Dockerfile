@@ -1,11 +1,13 @@
 # Stage 1: Install dependencies
 FROM node:24.13.0-alpine AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
+RUN corepack enable
+RUN corepack prepare pnpm@10.28.2 --activate
+COPY package.json pnpm-lock.yaml ./
 # Install dependencies with npm ci (faster, respects lockfile)
-RUN npm ci --no-audit --no-fund
+RUN pnpm install --frozen-lockfile --prod
 COPY . .
-RUN npx expo export -p web
+RUN pnpm exec expo export -p web
 
 # Stage 2: Production (using Nginx for better performance)
 FROM nginx:alpine
@@ -13,7 +15,7 @@ FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy custom nginx config for SPA routing and caching
 RUN echo 'server { \
-    listen 80; \
+    listen 8000; \
     root /usr/share/nginx/html; \
     index index.html; \
     \
@@ -37,7 +39,4 @@ RUN echo 'server { \
 }' > /etc/nginx/conf.d/default.conf
 
 COPY --from=builder /app/dist /usr/share/nginx/html
-
-EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
